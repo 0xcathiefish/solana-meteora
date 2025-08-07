@@ -3,204 +3,65 @@
 use solana_program::{
     account_info::AccountInfo,
     entrypoint::ProgramResult,
+    msg,
     program_error::ProgramError,
-    pubkey::{Pubkey, pubkey},
+    pubkey::Pubkey,
 };
-
-use spl_token_2022 as spl_token;
 
 pub struct Check;
 
 impl Check {
-
-    // Whitelist check
-    pub fn check_whitelist(payer_account: &AccountInfo) -> ProgramResult {
-
-        const WHITELISTED_USER: [Pubkey;1] = [
-
-            pubkey!("Gkm1jpBw9yv2jrFGNDcHJP2ThL2MsHXGvLT1agbNSyqG"),
-        ];
-
-        if !WHITELISTED_USER.contains(payer_account.key) || !payer_account.is_signer {
-
-            return Err(ProgramError::IncorrectAuthority);
+    /// Checks if the given account is a signer.
+    pub fn check_is_signer(account: &AccountInfo) -> ProgramResult {
+        if !account.is_signer {
+            msg!("Missing required signature");
+            return Err(ProgramError::MissingRequiredSignature);
         }
-
-        else {
-
-            Ok(())
-        }
-    }
-    
-    // system program id check
-    pub fn check_system_program(system_program_account: &AccountInfo) -> ProgramResult {
-
-        if !solana_program::system_program::check_id(&system_program_account.key) {
-
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        else {
-
-            Ok(())
-        }
-    }
-
-    // pda owner check
-    pub fn check_pda_owner(pda_import: &AccountInfo, program_id: &Pubkey) -> ProgramResult {
-
-        if pda_import.owner != program_id {
-
-            return Err(ProgramError::IncorrectProgramId);
-        }
-
-        else {
-
-            Ok(())
-        }
-    }
-
-    // pda valid check
-    pub fn check_pda_valid(pda_import: &AccountInfo, payer_account: &AccountInfo, program_id: &Pubkey) -> ProgramResult {
-
-        let seeds = &[
-
-            b"create_pda",
-            payer_account.key.as_ref(),
-        ];
-
-        let (pda_caculate, _) = Pubkey::find_program_address(seeds, program_id);
-
-        if &pda_caculate != pda_import.key {
-
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        else {
-
-            Ok(())
-        }
-    }
-
-    pub fn check_token_manager(pda_import: &AccountInfo, program_id: &Pubkey) -> ProgramResult {
-
-        Self::_check_token_manager_valid(pda_import,program_id)?;
-        Self::_check_token_manager_owner(pda_import,program_id)?;
-
         Ok(())
     }
 
-    fn _check_token_manager_valid(pda_import: &AccountInfo, program_id: &Pubkey) -> ProgramResult {
-
-        let seeds: &[&[u8]] = &[
-
-            b"token_manager",
-        ];
-    
-        let (pda_caculate, _) = Pubkey::find_program_address(seeds, program_id);
-    
-        if &pda_caculate != pda_import.key {
-    
-            return Err(ProgramError::InvalidAccountData);
-        }
-    
-        else {
-    
-            Ok(())
-        }
-    }
-
-    fn _check_token_manager_owner(pda_import: &AccountInfo, program_id: &Pubkey) -> ProgramResult {
-
-        if pda_import.owner != program_id {
-
+    /// Checks if the given account is the system program.
+    pub fn check_system_program(account: &AccountInfo) -> ProgramResult {
+        if !solana_program::system_program::check_id(account.key) {
+            msg!("Incorrect system program ID");
             return Err(ProgramError::IncorrectProgramId);
         }
-
-        else {
-
-            Ok(())
-        }
+        Ok(())
     }
 
-
-    // balance check
-    pub fn check_balance(account: &AccountInfo, sol_lamports:u64) -> ProgramResult {
-
-        if account.lamports() < sol_lamports {
-
-            return Err(ProgramError::InsufficientFunds);
+    /// Checks if the given account is the SPL Token program.
+    pub fn check_token_program(account: &AccountInfo) -> ProgramResult {
+        if account.key != &spl_token::ID {
+            msg!("Incorrect token program ID");
+            return Err(ProgramError::IncorrectProgramId);
         }
-
-        else {
-
-            Ok(())
-        }
+        Ok(())
     }
 
-    // is signer check
-    pub fn check_is_signer(payer_account: &AccountInfo) -> ProgramResult {
-
-        if !payer_account.is_signer {
-
-            return Err(ProgramError::MissingRequiredSignature);
+    /// Checks if the given account is the SPL Token 2022 program.
+    pub fn check_token_2022_program(account: &AccountInfo) -> ProgramResult {
+        if account.key != &spl_token_2022::ID {
+            msg!("Incorrect token-2022 program ID");
+            return Err(ProgramError::IncorrectProgramId);
         }
-
-        else {
-
-            Ok(())
-        }
+        Ok(())
     }
 
-    // check is instruction data empty ?
+    /// Checks if the instruction data is not empty.
     pub fn check_instr(instruction_data: &[u8]) -> ProgramResult {
-
         if instruction_data.is_empty() {
-
+            msg!("Instruction data is empty");
             return Err(ProgramError::InvalidInstructionData);
         }
-
-        else {
-            
-            Ok(())
-        }
+        Ok(())
     }
 
-    // check token program account
-    pub fn check_token_program(token_program_account: &AccountInfo) -> ProgramResult {
-
-        if token_program_account.key != &spl_token::ID {
-
+    /// Checks if the provided program ID is the expected one.
+    pub fn check_program_id(program_id: &Pubkey, expected_id: &Pubkey) -> ProgramResult {
+        if program_id != expected_id {
+            msg!("Incorrect program ID: expected {}, got {}", expected_id, program_id);
             return Err(ProgramError::IncorrectProgramId);
         }
-
-        else {
-
-            Ok(())
-        }
+        Ok(())
     }
-
-
-    // pda vault check
-    pub fn check_pda_valut(pda_vault: &AccountInfo,program_id: &Pubkey) -> ProgramResult {
-
-        let seeds: &[&[u8]] = &[
-
-            b"create_pda",
-        ];
-
-        let (pda_caculate, _) = Pubkey::find_program_address(seeds, program_id);
-
-        if &pda_caculate != pda_vault.key {
-
-            return Err(ProgramError::InvalidAccountData)
-        }
-
-        else {
-
-            Ok(())
-        }
-
-    }
-
 }
