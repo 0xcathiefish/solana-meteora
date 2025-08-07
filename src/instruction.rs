@@ -16,6 +16,7 @@ pub struct InitializePoolParameters {
 }
 
 impl MeteoraInstruction {
+    
     // pack
     pub fn pack(self) -> Vec<u8> {
         self.try_to_vec().expect("Failed to serilize")

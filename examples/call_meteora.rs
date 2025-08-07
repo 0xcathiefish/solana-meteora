@@ -85,23 +85,20 @@ fn main() -> Result<()> {
 
 
     // account generate
-
     let position_nft_mint = Keypair::new();
     let position_nft_mint_pub = position_nft_mint.pubkey();
     info!("nft_mint pubkey :{}",position_nft_mint_pub);
 
 
     let (position_nft_account_pda,_) = Pubkey::find_program_address(&[seeds::POSITION_NFT_ACCOUNT_PREFIX,position_nft_mint_pub.as_ref()], &METEORA_PROGRAM_ID);
+
     // The pool authority is a constant address specified in the IDL, not a PDA.
     let pool_authority_pda = "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC".parse()?;
-    //let pool = Pubkey::new_unique();
 
 
-    let mut mints = [TOKEN_MINT_A,TOKEN_MINT_B];
-    mints.sort();
-    let [sorted_token_mint_a, sorted_token_mint_b] = mints;
+    let (min_mint,max_mint) = pool_get_mints_order(TOKEN_MINT_A,TOKEN_MINT_B);
 
-    let (pool,_) = Pubkey::find_program_address(&[seeds::POOL_PREFIX,CONFIG.as_ref(),TOKEN_MINT_B.as_ref(),TOKEN_MINT_A.as_ref()], &METEORA_PROGRAM_ID);
+    let (pool,_) = Pubkey::find_program_address(&[seeds::POOL_PREFIX,CONFIG.as_ref(),max_mint.as_ref(),min_mint.as_ref()], &METEORA_PROGRAM_ID);
 
     info!("pool pubkey : {:?}",pool);
 
@@ -211,4 +208,18 @@ fn main() -> Result<()> {
     info!("Meteora Pool Address: {}", pool);
 
     Ok(())
+}
+
+// Return thee correct mint order to config pool
+pub fn pool_get_mints_order(mint_a: Pubkey, mint_b: Pubkey) -> (Pubkey, Pubkey) {
+
+    if mint_a.to_bytes() < mint_b.to_bytes() {
+
+        (mint_a, mint_b)
+    }
+
+    else {
+
+        (mint_b, mint_a)
+    }
 }

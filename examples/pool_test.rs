@@ -36,21 +36,33 @@ fn main() -> Result<()>{
     dotenv().ok();
     env_logger::init();
 
-    let TOKEN_MINT_A: Pubkey = "5fT5munkFEHJkVc722rMnXmtEmgZdGEAqgAW54y7pump".parse()?;
-    let TOKEN_MINT_B: Pubkey = "So11111111111111111111111111111111111111112".parse()?;
+    let TOKEN_MINT_A: Pubkey = "So11111111111111111111111111111111111111112".parse()?;
+    let TOKEN_MINT_B: Pubkey = "HhzuvREDjXYsRoWHauVT1hyZaXRnfxWVwqWFFx1HDLXF".parse()?;
 
     let CONFIG: Pubkey = "C11DxNAH4NBGNHGzTCq9ZUcJrVJ9dEG5CLwSmis3Y6HJ".parse()?;
 
     let METEORA_PROGRAM_ID = "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG".parse()?;
 
-    let mut mints = [TOKEN_MINT_A,TOKEN_MINT_B];
-    mints.sort();
-    let [sorted_token_mint_a, sorted_token_mint_b] = mints;
 
-    let (pool,_) = Pubkey::find_program_address(&[seeds::POOL_PREFIX,CONFIG.as_ref(),TOKEN_MINT_A.as_ref(),TOKEN_MINT_B.as_ref()], &METEORA_PROGRAM_ID);
+    let (min_mint,max_mint) = pool_get_mints_order(TOKEN_MINT_A,TOKEN_MINT_B);
+
+    let (pool,_) = Pubkey::find_program_address(&[seeds::POOL_PREFIX,CONFIG.as_ref(),max_mint.as_ref(),min_mint.as_ref()], &METEORA_PROGRAM_ID);
 
     info!("pool pubkey : {:?}",pool);
 
     Ok(())
 
+}
+
+pub fn pool_get_mints_order(mint_a: Pubkey, mint_b: Pubkey) -> (Pubkey, Pubkey) {
+
+    if mint_a.to_bytes() < mint_b.to_bytes() {
+
+        (mint_a, mint_b)
+    }
+
+    else {
+
+        (mint_b, mint_a)
+    }
 }
