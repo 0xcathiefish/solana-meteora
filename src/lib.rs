@@ -65,9 +65,6 @@ fn cpi_initialize_pool(
     activation_point: Option<u64>,
 ) -> ProgramResult {
 
-
-    msg!("1");
-
     let accounts_iter = &mut accounts.iter();
 
     // The order of accounts must match the client-side order exactly.

@@ -4,6 +4,9 @@
 mod constants;
 use constants::{seeds,DEFAULT_QUOTE_MINTS};
 
+mod price_config;
+use price_config::{PriceConfig};
+
 use anyhow::Result;
 use solana_client::rpc_client::RpcClient;
 
@@ -41,8 +44,8 @@ const METEORA_PROGRAM_ID: Pubkey = Pubkey::new_from_array([9, 45, 33, 53, 101, 1
 // wsol
 const TOKEN_MINT_A: Pubkey = DEFAULT_QUOTE_MINTS[0];
 
-// HhzuvREDjXYsRoWHauVT1hyZaXRnfxWVwqWFFx1HDLXF spl-token22
-const TOKEN_MINT_B: Pubkey = Pubkey::new_from_array([248, 59, 180, 121, 130, 62, 40, 43, 72, 167, 37, 154, 80, 64, 86, 42, 98, 50, 225, 212, 118, 32, 132, 4, 4, 178, 195, 119, 133, 115, 134, 38]);
+// EE69dTt7xnSSWekwf3iZBDi1RcCCA77iBv2tHwuT5Njd spl-token22
+//const TOKEN_MINT_B: Pubkey = Pubkey::new_from_array([248, 59, 180, 121, 130, 62, 40, 43, 72, 167, 37, 154, 80, 64, 86, 42, 98, 50, 225, 212, 118, 32, 132, 4, 4, 178, 195, 119, 133, 115, 134, 38]);
 
 // CONFIG C11DxNAH4NBGNHGzTCq9ZUcJrVJ9dEG5CLwSmis3Y6HJ
 const CONFIG: Pubkey = Pubkey::new_from_array([163, 112, 207, 9, 111, 69, 176, 4, 63, 43, 120, 87, 144, 5, 113, 224, 14, 223, 88, 68, 124, 75, 2, 106, 243, 32, 47, 6, 98, 37, 10, 221]);
@@ -53,6 +56,8 @@ fn main() -> Result<()> {
 
     // on-chain program id 9AALRRB5DfN2gNT7QmRKeQdRS5VGvZaoYBqkBQSXaAAb
     let PROGRAM_ID: Pubkey = "3HXXH4ypbLt8MFVw54umbZFWkRwFuuRpVGsXGBvoxaUq".parse()?;
+
+    let TOKEN_MINT_B = "3W3PopgrcuGPCZoHpSsugBRhyrczygTs52iEjp8DGEiW".parse()?;
 
     let client = RpcClient::new_with_commitment(RPC_URL.to_string(), CommitmentConfig::confirmed());
     info!("Connected to RPC: {}", RPC_URL);
@@ -109,15 +114,20 @@ fn main() -> Result<()> {
     let (token_b_vault_pda, _) = Pubkey::find_program_address(&[seeds::TOKEN_VAULT_PREFIX, TOKEN_MINT_B.as_ref(), pool.as_ref(),], &METEORA_PROGRAM_ID);
 
     let creator_token_a_ata = "H3KxVJT77tyNzj6QAEkDajWTCy6uYE7Rzhs7MBGRdg8k".parse()?;
-    let creator_token_b_ata = "47zz3JfQD7FnM9QSK82VVdytmdDQd4W715zoRiTeNr6e".parse()?;
+    let creator_token_b_ata = "BpjvKRmbP297QaAQCh7dEC5b3VdhFn3J3BFiuQNQqH2U".parse()?;
 
     let (event_authority_pda,_) = Pubkey::find_program_address(&[seeds::EVENT_AUTHORITY], &METEORA_PROGRAM_ID);
+
+
+    // 确保与price_config.rs中的参数顺序一致
+    // PriceConfig::new(spl_price_usd, sol_price_usd, usd_value_to_provide, spl_decimal, sol_decimal)
+    let (sqrt_price,liquidity) = PriceConfig::new(0.001, 180.0, 2.0, 6, 9).get_result();
 
     // --- Build and Send CPI Transaction ---
     let cpi_params = MeteoraInstruction::CpiInitializePool(
         InitializePoolParameters {
-            liquidity: 100_000_000,
-            sqrt_price: 79228162514,
+            liquidity: liquidity,
+            sqrt_price: sqrt_price,
             activation_point: None,
         },
     );
