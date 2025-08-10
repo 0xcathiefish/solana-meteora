@@ -12,6 +12,7 @@ solana-program = {workspace = true}
 borsh = {workspace = true}
 spl-token-2022 = {workspace = true}
 spl-associated-token-account = {workspace = true}
+ruint = { version = "1.12.0", default-features = false }
 
 
 #cp-amm = { path = "../../damm-v2/programs/cp-amm", features = ["no-entrypoint", "cpi"] }
@@ -27,4 +28,7 @@ serde_json = "1.0.132"
 anyhow = "1.0.97"
 tokio = { version = "1", features = ["full"] }
 rand = "0.8.5"
-ruint = { version = "1.12.0", default-features = false }
+meteora-damm-v2-rep = {package = "cp-amm", path = "../../solana-sdk/meteora/damm-v2/programs/cp-amm", features=["no-entrypoint"] }
+meteora-damm-v2-sdk = {package = "rust-sdk",  path = "../../solana-sdk/meteora/damm-v2/rust-sdk"}
+bytemuck = "1.23"
+memoffset = "0.9.1"

@@ -2,10 +2,19 @@
 #![allow(deprecated)]
 
 pub mod instruction;
-use crate::instruction::{InitializePoolParameters, MeteoraInstruction};
+use crate::instruction::{MeteoraInstruction};
 
 pub mod check;
 use crate::check::Check;
+
+pub mod meteora_v2_pool;
+pub use meteora_v2_pool::{
+    
+    TradeDirection,
+    MeteoraDammV2Pool,
+    MeteoraDammV2PoolSwapParams,
+    InitializePoolParameters
+};
 
 use borsh::{BorshDeserialize,BorshSerialize};
 
@@ -30,22 +39,32 @@ fn process_instruction(
     let instruction = MeteoraInstruction::unpack(instruction_data)?;
 
     match instruction {
+
         MeteoraInstruction::CpiInitializePool(
-            InitializePoolParameters {
-                liquidity,
-                sqrt_price,
-                activation_point,
-            }
+            InitializePoolParameters,
         ) => {
             msg!("Instruction: CpiInitializePool");
             cpi_initialize_pool(
                 program_id,
                 accounts,
-                liquidity,
-                sqrt_price,
-                activation_point,
+                InitializePoolParameters,
             )?;
         },
+
+        MeteoraInstruction::CpiSwap(
+            MeteoraDammV2PoolSwapParams,
+            TradeDirection,
+        ) => {
+            msg!("Instruction: CpiSwap");
+            cpi_swap(
+                program_id,
+                accounts,
+                MeteoraDammV2PoolSwapParams,
+                TradeDirection,
+            )?;
+        }
+
+        _ => {}
     }
 
     Ok(())
@@ -60,9 +79,7 @@ fn process_instruction(
 fn cpi_initialize_pool(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],
-    liquidity: u128,
-    sqrt_price: u128,
-    activation_point: Option<u64>,
+    InitializePoolParameters: InitializePoolParameters,
 ) -> ProgramResult {
 
     let accounts_iter = &mut accounts.iter();
@@ -104,11 +121,7 @@ fn cpi_initialize_pool(
         activation_point: Option<u64>,
     }
 
-    let params = InitializePoolParametersForCpi {
-        liquidity,
-        sqrt_price,
-        activation_point,
-    };
+    let params = InitializePoolParameters;
 
     // The instruction discriminator for `initialize_pool` is `[149, 82, 72, 197, 253, 252, 68, 15]`
     // initialize_pool is [95,180,10,172,84,174,232,40]
@@ -178,6 +191,130 @@ fn cpi_initialize_pool(
     )?;
     
     msg!("Pool initialized successfully via CPI");
+
+    Ok(())
+}
+
+
+
+#[allow(clippy::too_many_arguments)]
+fn cpi_swap(
+    _program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    MeteoraDammV2PoolSwapParams: MeteoraDammV2PoolSwapParams,
+    TradeDirection: TradeDirection,
+) -> ProgramResult {
+
+    msg!("Instruction to swap");
+    msg!("amount in : {}", MeteoraDammV2PoolSwapParams.amount_in);
+    msg!("minimum_amount_out : {}", MeteoraDammV2PoolSwapParams.minimum_amount_out);
+    
+    let accounts_iter = &mut accounts.iter();
+
+    // The order of accounts must match the client-side order exactly.
+    let payer                       = next_account_info(accounts_iter)?;
+    let pool_authority              = next_account_info(accounts_iter)?;
+    let pool                        = next_account_info(accounts_iter)?;
+
+    let (
+        input_token_account,
+        output_token_account,
+
+    ) = match TradeDirection {
+
+        TradeDirection::BUY => {
+
+            let input_token_account         = next_account_info(accounts_iter)?;
+            let output_token_account        = next_account_info(accounts_iter)?;
+            
+            (input_token_account,output_token_account)
+        },
+
+        TradeDirection::SELL => {
+
+            let input_token_account         = next_account_info(accounts_iter)?;
+            let output_token_account        = next_account_info(accounts_iter)?;
+            
+            (output_token_account,input_token_account)
+        }
+    };
+
+    
+    let token_a_vault               = next_account_info(accounts_iter)?;
+    let token_b_vault               = next_account_info(accounts_iter)?;
+    let token_a_mint                = next_account_info(accounts_iter)?;
+    let token_b_mint                = next_account_info(accounts_iter)?;
+    let token_a_program             = next_account_info(accounts_iter)?;
+    let token_b_program             = next_account_info(accounts_iter)?;    
+    let referral_token_account      = next_account_info(accounts_iter)?;
+    let event_authority             = next_account_info(accounts_iter)?;
+    let meteora_program             = next_account_info(accounts_iter)?;
+    
+    
+
+    // --- Validation Checks ---
+    Check::check_is_signer(payer)?;
+
+
+    let params = MeteoraDammV2PoolSwapParams;
+
+    // The instruction discriminator for `swap` 
+    // 需要通过测试或IDL确定，这里使用占位符
+    let mut instruction_data_cpi = vec![248,198,158,145,225,117,135,200]; 
+    instruction_data_cpi.extend_from_slice(&params.try_to_vec().unwrap());
+
+    // --- Construct CPI Accounts ---
+    // The order must match Meteora's `swap` instruction.
+    let account_metas = vec![
+        AccountMeta::new_readonly(*pool_authority.key, false),
+        AccountMeta::new(*pool.key, false),
+        AccountMeta::new(*input_token_account.key, false),
+        AccountMeta::new(*output_token_account.key, false),
+        AccountMeta::new(*token_a_vault.key, false),
+        AccountMeta::new(*token_b_vault.key, false),
+        AccountMeta::new_readonly(*token_a_mint.key, false),
+        AccountMeta::new_readonly(*token_b_mint.key, false),
+        AccountMeta::new_readonly(*payer.key, true),
+        AccountMeta::new_readonly(*token_a_program.key, false),
+        AccountMeta::new_readonly(*token_b_program.key, false),
+        // referral account 暂时跳过
+        AccountMeta::new(*referral_token_account.key, false),
+        AccountMeta::new_readonly(*event_authority.key, false),
+        AccountMeta::new_readonly(*meteora_program.key, false),
+    ];
+
+    // --- Create and Invoke CPI ---
+    let cpi_instruction = Instruction {
+        program_id: *meteora_program.key,
+        accounts: account_metas,
+        data: instruction_data_cpi,
+    };
+
+    let account_infos = &[
+        pool_authority.clone(),
+        pool.clone(),
+        input_token_account.clone(),
+        output_token_account.clone(),
+        token_a_vault.clone(),
+        token_b_vault.clone(),
+        token_a_mint.clone(),
+        token_b_mint.clone(),
+        payer.clone(),
+        token_a_program.clone(),
+        token_b_program.clone(),
+        referral_token_account.clone(), 
+        event_authority.clone(),
+        meteora_program.clone(), // The program being called must be in account_infos
+    ];
+
+    msg!("Invoking Meteora DAMM program to swap...");
+
+    invoke(
+        &cpi_instruction, 
+        account_infos
+    )?;
+    
+    msg!("Swap executed successfully via CPI");
 
     Ok(())
 }

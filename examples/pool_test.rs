@@ -27,7 +27,12 @@ use serde_json;
 
 // --- Local Program Dependencies ---
 use meteora::instruction::{
-    InitializePoolParameters, MeteoraInstruction,
+     MeteoraInstruction,
+};
+
+use meteora::meteora_v2_pool::{
+
+    InitializePoolParameters,
 };
 
 

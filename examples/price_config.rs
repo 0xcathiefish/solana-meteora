@@ -93,9 +93,8 @@ fn sqrt_u256(n: U256) -> U256 {
     x
 }
 
-// --- 完全按照官方实现的验证函数 ---
+// --- Check logic as same as the official code ---
 
-/// 完全按照官方get_initialize_amounts实现
 pub fn get_initialize_amounts(
     sqrt_min_price: u128,
     sqrt_max_price: u128,
@@ -109,13 +108,12 @@ pub fn get_initialize_amounts(
     (amount_a, amount_b)
 }
 
-/// 完全按照官方mul_div_u256实现
+
 pub fn mul_div_u256(x: U256, y: U256, denominator: U256, rounding: Rounding) -> Option<U256> {
     if denominator == U256::ZERO {
         return None;
     }
 
-    // 使用U256避免溢出
     let prod = x.checked_mul(y)?;
 
     let result = match rounding {
@@ -129,7 +127,7 @@ pub fn mul_div_u256(x: U256, y: U256, denominator: U256, rounding: Rounding) -> 
     Some(result)
 }
 
-/// 完全按照官方get_delta_amount_a_unsigned_unchecked实现
+
 pub fn get_delta_amount_a_unsigned_unchecked(
     lower_sqrt_price: u128,
     upper_sqrt_price: u128,
@@ -147,7 +145,7 @@ pub fn get_delta_amount_a_unsigned_unchecked(
     result
 }
 
-/// 完全按照官方get_delta_amount_a_unsigned实现
+
 pub fn get_delta_amount_a_unsigned(
     lower_sqrt_price: u128,
     upper_sqrt_price: u128,
@@ -164,7 +162,7 @@ pub fn get_delta_amount_a_unsigned(
     result.try_into().expect("type cast failed")
 }
 
-/// 完全按照官方get_delta_amount_b_unsigned_unchecked实现
+
 pub fn get_delta_amount_b_unsigned_unchecked(
     lower_sqrt_price: u128,
     upper_sqrt_price: u128,
@@ -187,7 +185,7 @@ pub fn get_delta_amount_b_unsigned_unchecked(
     }
 }
 
-/// 完全按照官方get_delta_amount_b_unsigned实现
+
 pub fn get_delta_amount_b_unsigned(
     lower_sqrt_price: u128,
     upper_sqrt_price: u128,
@@ -204,7 +202,7 @@ pub fn get_delta_amount_b_unsigned(
     result.try_into().expect("type cast failed")
 }
 
-/// 使用官方逻辑验证
+
 pub fn verify_with_onchain_logic(sqrt_price: u128, liquidity: u128) -> (u64, u64) {
     let (onchain_amount_a, onchain_amount_b) = get_initialize_amounts(MIN_SQRT_PRICE, MAX_SQRT_PRICE, sqrt_price, liquidity);
     (onchain_amount_a, onchain_amount_b)
@@ -218,7 +216,6 @@ fn main() {
     let spl_decimal: u8 = 6;
     let usd_value_to_provide = 2.0;
 
-    // 修正：交换参数顺序，让SPL作为Token A，SOL作为Token B
     let (price, liquidity) =
         PriceConfig::new(spl_price_usd, sol_price_usd, usd_value_to_provide, spl_decimal, sol_decimal).get_result();
 
@@ -231,8 +228,8 @@ fn main() {
     
     println!("\n--- On-chain Calculation Verification ---");
     println!("Based on the client's results, the on-chain program will require:");
-    println!("SPL (Token A) lamports: {}", onchain_amount_a);  // 修正：SPL对应amount_a
-    println!("SOL (Token B) lamports: {}", onchain_amount_b);  // 修正：SOL对应amount_b
+    println!("SPL (Token A) lamports: {}", onchain_amount_a);  
+    println!("SOL (Token B) lamports: {}", onchain_amount_b); 
     
     // --- Step 3: Compare with Original Intent ---
     let expected_spl_lamports = (usd_value_to_provide / spl_price_usd) * 10f64.powi(spl_decimal as i32);

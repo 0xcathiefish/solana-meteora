@@ -3,12 +3,22 @@
 
 mod constants;
 use constants::{seeds,DEFAULT_QUOTE_MINTS};
+use meteora::meteora_v2_pool::{
+    TradeDirection,
+    MeteoraDammV2Pool,
+    MeteoraDammV2PoolSwapParams,
+    InitializePoolParameters,
+    LIQUIDITY_BEGIN,LIQUIDITY_END,
+    SQRT_PRICE_BEGIN,SQRT_PRICE_END,
+};
 
 mod price_config;
 use price_config::{PriceConfig};
 
+
 use anyhow::Result;
 use solana_client::rpc_client::RpcClient;
+
 
 use solana_sdk::{
     commitment_config::CommitmentConfig,
@@ -23,14 +33,14 @@ use solana_sdk::{
 use spl_associated_token_account::get_associated_token_address_with_program_id;
 
 
-use std::{fs, time::Duration};
+use std::{fs, time::Duration,time::SystemTime};
 use log::{info, error};
 use dotenvy::dotenv;
 use serde_json;
 
 // --- Local Program Dependencies ---
 use meteora::instruction::{
-    InitializePoolParameters, MeteoraInstruction,
+    MeteoraInstruction,
 };
 
 // --- Constants ---
@@ -53,6 +63,15 @@ const CONFIG: Pubkey = Pubkey::new_from_array([163, 112, 207, 9, 111, 69, 176, 4
 fn main() -> Result<()> {
     dotenv().ok();
     env_logger::init();
+
+    //test_pool_parsing();
+
+    // let a = get_amount();
+
+    // info!("a ={a}" );
+
+    //return Ok(());
+
 
     // on-chain program id 9AALRRB5DfN2gNT7QmRKeQdRS5VGvZaoYBqkBQSXaAAb
     let PROGRAM_ID: Pubkey = "3HXXH4ypbLt8MFVw54umbZFWkRwFuuRpVGsXGBvoxaUq".parse()?;
@@ -119,12 +138,93 @@ fn main() -> Result<()> {
     let (event_authority_pda,_) = Pubkey::find_program_address(&[seeds::EVENT_AUTHORITY], &METEORA_PROGRAM_ID);
 
 
-    // 确保与price_config.rs中的参数顺序一致
     // PriceConfig::new(spl_price_usd, sol_price_usd, usd_value_to_provide, spl_decimal, sol_decimal)
     let (sqrt_price,liquidity) = PriceConfig::new(0.001, 180.0, 2.0, 6, 9).get_result();
 
+
+    // params_swap 
+    let params_swap = MeteoraInstruction::CpiSwap(
+        get_swap_params(
+            false, 
+            (500.0 * 1_000_000.0) as u64, 
+            10000,
+        ),
+        TradeDirection::SELL,
+    );
+
+    let instruction_swap = Instruction {
+
+        program_id: PROGRAM_ID,
+        accounts: vec![
+
+            // 9. signer
+            AccountMeta::new_readonly(payer.pubkey(),true),
+
+            // 1. pool authority
+            AccountMeta::new_readonly(pool_authority_pda,false),
+
+            // 2. pool
+            AccountMeta::new(pool,false),
+
+            // 3. Input tokenAccount
+            AccountMeta::new(creator_token_a_ata,false),
+
+            // 4. Output tokenAccount
+            AccountMeta::new(creator_token_b_ata,false),
+
+            // 5. token_a_vault
+            AccountMeta::new(token_a_vault_pda,false),
+
+            // 6. token_b_vault
+            AccountMeta::new(token_b_vault_pda,false),
+
+            // 7. token_a_mint
+            AccountMeta::new_readonly(TOKEN_MINT_A,false),
+
+            // 8. token_b_mint
+            AccountMeta::new_readonly(TOKEN_MINT_B,false),
+
+            // 10. token a program
+            AccountMeta::new_readonly(spl_token::ID,false),
+
+            // 11. token b program
+            AccountMeta::new_readonly(spl_token_2022::ID,false),
+
+            // 12. referrel account option
+            //AccountMeta::new_readonly(system_program::id(),false),
+            AccountMeta::new(METEORA_PROGRAM_ID, false),
+
+            // 13. event authority
+            AccountMeta::new_readonly(event_authority_pda, false),
+
+            // 14. meteora program
+            AccountMeta::new_readonly(METEORA_PROGRAM_ID, false),
+
+        ],
+        data: params_swap.pack(),
+    };
+
+    let mut tx_cpi_swap = Transaction::new_with_payer(
+
+        &[
+            ComputeBudgetInstruction::set_compute_unit_limit(400_000),
+            instruction_swap,
+        ], 
+        Some(&payer.pubkey()),
+    );
+
+    let recent_blockhash = client.get_latest_blockhash()?;
+    tx_cpi_swap.sign(&[&payer], recent_blockhash);
+
+
+
+
+
+
+
+
     // --- Build and Send CPI Transaction ---
-    let cpi_params = MeteoraInstruction::CpiInitializePool(
+    let params_initialize_pool = MeteoraInstruction::CpiInitializePool(
         InitializePoolParameters {
             liquidity: liquidity,
             sqrt_price: sqrt_price,
@@ -132,7 +232,7 @@ fn main() -> Result<()> {
         },
     );
 
-    let cpi_ix = Instruction {
+    let instruction_initialize_pool = Instruction {
         program_id: PROGRAM_ID,
         accounts: vec![
             // User and signer
@@ -196,25 +296,26 @@ fn main() -> Result<()> {
             // 19. Event authority (must be readonly)
             AccountMeta::new_readonly(event_authority_pda, false),
         ],
-        data: cpi_params.pack(),
+        data: params_initialize_pool.pack(),
     };
 
-    let mut cpi_tx = Transaction::new_with_payer(
+    let mut tx_cpi_initialize_pool = Transaction::new_with_payer(
         &[
             ComputeBudgetInstruction::set_compute_unit_limit(400_000),
-            cpi_ix
+            instruction_initialize_pool
         ],
         Some(&payer.pubkey()),
     );
 
     let recent_blockhash = client.get_latest_blockhash()?;
-    cpi_tx.sign(&[&payer, &position_nft_mint], recent_blockhash);
+    tx_cpi_initialize_pool.sign(&[&payer, &position_nft_mint], recent_blockhash);
+
 
     info!("Sending CPI transaction to create Meteora pool...");
-    let sig = client.send_and_confirm_transaction(&cpi_tx)?;
+    let sig = client.send_and_confirm_transaction(&tx_cpi_swap)?;
     info!("✅ CPI transaction successful!");
     info!("Transaction Signature: {}", sig);
-    info!("🔍 View on Explorer: https://solscan.io/tx/{}?cluster=custom&customUrl={}", sig, RPC_URL);
+    info!("🔍 View on Explorer: https://solscan.io/tx/{}?cluster=devnet", sig);
     info!("Meteora Pool Address: {}", pool);
 
     Ok(())
@@ -233,3 +334,127 @@ pub fn pool_get_mints_order(mint_a: Pubkey, mint_b: Pubkey) -> (Pubkey, Pubkey) 
         (mint_b, mint_a)
     }
 }
+
+
+// pub fn get_amount_output(amount_in: u64, slipage_bps :u64) -> u64 {
+
+//     let pool = get_pool();
+
+//     let current_timestamp: u64 = SystemTime::now()
+//         .duration_since(std::time::UNIX_EPOCH)
+//         .unwrap()
+//         .as_secs();
+//     let current_slot: u64 = 356410171;
+
+//     let a_to_b: bool = false;
+//     let has_referral: bool = false;
+
+//     let amount_out = quote::get_quote(
+//         &pool, 
+//         current_timestamp, 
+//         current_slot, 
+//         amount_in, 
+//         a_to_b, 
+//         has_referral
+//     ).map(|swap_result| swap_result.output_amount).unwrap();
+
+//     ( (amount_out) as u128 * (10_000 - slipage_bps) as u128 / 10_000 ) as u64
+// }
+
+
+// fn get_pool() -> Pool {
+
+//     let rpc_client = RpcClient::new(RPC_URL);
+    
+//     let pool_pubkey: Pubkey = "AEG7U65WCKfovBiysA4c9jkyVkPAhMaGjMaNF9zUDCG7".parse().unwrap();
+    
+//     let account_data = rpc_client.get_account(&pool_pubkey).unwrap();
+    
+//     // 跳过discriminator (前8个字节)
+//     let data_without_discriminator = &account_data.data[8..];
+    
+//     // 手动创建对齐的缓冲区
+//     let pool_size = std::mem::size_of::<Pool>();
+//     if data_without_discriminator.len() < pool_size {
+//         panic!("Account data too small for Pool struct");
+//     }
+    
+//     // 创建对齐的Vec
+//     let mut aligned_data = vec![0u8; pool_size];
+//     aligned_data.copy_from_slice(&data_without_discriminator[..pool_size]);
+    
+//     // 现在可以安全使用 from_bytes
+//     let pool: &Pool = bytemuck::from_bytes(&aligned_data);
+    
+//     *pool
+// }
+
+fn get_swap_params(direction: bool,amount_in: u64, slipage_bps: u64) -> MeteoraDammV2PoolSwapParams {
+
+
+    let pool = get_pool();
+
+    MeteoraDammV2PoolSwapParams::new(
+
+        direction, 
+        pool.liquidity, 
+        pool.sqrt_price, 
+        amount_in, 
+        slipage_bps
+    )
+}
+
+
+fn get_pool() -> MeteoraDammV2Pool {
+
+
+    let rpc_client = RpcClient::new(RPC_URL);
+
+    let pool_pubkey: Pubkey = "AEG7U65WCKfovBiysA4c9jkyVkPAhMaGjMaNF9zUDCG7".parse().unwrap();
+
+    let account_data = rpc_client.get_account(&pool_pubkey).unwrap();
+
+
+    //println!("len = {}",account_data.data.len());
+
+    let total_bytes: usize = account_data.data.len();
+    let liquidity_data: &[u8] = &account_data.data[LIQUIDITY_BEGIN..LIQUIDITY_END];
+    let sqrt_price_data: &[u8] = &account_data.data[SQRT_PRICE_BEGIN..SQRT_PRICE_END];
+
+    let liquidity_collect: [u8;16] = liquidity_data.try_into().unwrap();
+    let sqrt_price_collect: [u8;16] = sqrt_price_data.try_into().unwrap();
+
+    let liquidity = u128::from_le_bytes(liquidity_collect);
+    let sqrt_price = u128::from_le_bytes(sqrt_price_collect);
+
+    MeteoraDammV2Pool::new(total_bytes, liquidity, sqrt_price)
+
+}
+
+
+
+
+// pub fn test_pool_parsing() {
+
+//     let pool = get_pool();
+
+//     let activate_point = get_slice();
+    
+//     println!("Pool Decode success !");
+//     println!("Pool Status: {}",pool.pool_status);
+
+
+
+//     println!("activation_point: {}", pool.activation_point);
+//     println!("slice caculate: {activate_point}");
+
+//     //assert_eq!(activate_point,pool.activation_point);
+
+
+//     println!("current price: {}", pool.sqrt_price);
+//     println!("liquidity: {}", pool.liquidity);
+//     println!("Token A: {}", pool.token_a_mint);
+//     println!("Token B: {}", pool.token_b_mint);
+
+// }
+

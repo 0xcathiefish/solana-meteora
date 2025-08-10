@@ -1,18 +1,18 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 
+use crate::meteora_v2_pool::{
+    TradeDirection,
+    InitializePoolParameters,
+    MeteoraDammV2PoolSwapParams
+};
+
 /// The constant-product AMM instruction data.
-#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, PartialEq)]
+#[derive(BorshSerialize, BorshDeserialize)]
 pub enum MeteoraInstruction {
     
     // Meteora Damm V2 -> initialize_pool
     CpiInitializePool(InitializePoolParameters),
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, PartialEq)]
-pub struct InitializePoolParameters {
-    pub liquidity: u128,
-    pub sqrt_price: u128,
-    pub activation_point: Option<u64>,
+    CpiSwap(MeteoraDammV2PoolSwapParams,TradeDirection),
 }
 
 impl MeteoraInstruction {
