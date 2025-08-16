@@ -321,6 +321,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+
 // Return thee correct mint order to config pool
 pub fn pool_get_mints_order(mint_a: Pubkey, mint_b: Pubkey) -> (Pubkey, Pubkey) {
 
@@ -336,61 +337,8 @@ pub fn pool_get_mints_order(mint_a: Pubkey, mint_b: Pubkey) -> (Pubkey, Pubkey) 
 }
 
 
-// pub fn get_amount_output(amount_in: u64, slipage_bps :u64) -> u64 {
-
-//     let pool = get_pool();
-
-//     let current_timestamp: u64 = SystemTime::now()
-//         .duration_since(std::time::UNIX_EPOCH)
-//         .unwrap()
-//         .as_secs();
-//     let current_slot: u64 = 356410171;
-
-//     let a_to_b: bool = false;
-//     let has_referral: bool = false;
-
-//     let amount_out = quote::get_quote(
-//         &pool, 
-//         current_timestamp, 
-//         current_slot, 
-//         amount_in, 
-//         a_to_b, 
-//         has_referral
-//     ).map(|swap_result| swap_result.output_amount).unwrap();
-
-//     ( (amount_out) as u128 * (10_000 - slipage_bps) as u128 / 10_000 ) as u64
-// }
-
-
-// fn get_pool() -> Pool {
-
-//     let rpc_client = RpcClient::new(RPC_URL);
-    
-//     let pool_pubkey: Pubkey = "AEG7U65WCKfovBiysA4c9jkyVkPAhMaGjMaNF9zUDCG7".parse().unwrap();
-    
-//     let account_data = rpc_client.get_account(&pool_pubkey).unwrap();
-    
-//     // 跳过discriminator (前8个字节)
-//     let data_without_discriminator = &account_data.data[8..];
-    
-//     // 手动创建对齐的缓冲区
-//     let pool_size = std::mem::size_of::<Pool>();
-//     if data_without_discriminator.len() < pool_size {
-//         panic!("Account data too small for Pool struct");
-//     }
-    
-//     // 创建对齐的Vec
-//     let mut aligned_data = vec![0u8; pool_size];
-//     aligned_data.copy_from_slice(&data_without_discriminator[..pool_size]);
-    
-//     // 现在可以安全使用 from_bytes
-//     let pool: &Pool = bytemuck::from_bytes(&aligned_data);
-    
-//     *pool
-// }
 
 fn get_swap_params(direction: bool,amount_in: u64, slipage_bps: u64) -> MeteoraDammV2PoolSwapParams {
-
 
     let pool = get_pool();
 
@@ -430,31 +378,4 @@ fn get_pool() -> MeteoraDammV2Pool {
     MeteoraDammV2Pool::new(total_bytes, liquidity, sqrt_price)
 
 }
-
-
-
-
-// pub fn test_pool_parsing() {
-
-//     let pool = get_pool();
-
-//     let activate_point = get_slice();
-    
-//     println!("Pool Decode success !");
-//     println!("Pool Status: {}",pool.pool_status);
-
-
-
-//     println!("activation_point: {}", pool.activation_point);
-//     println!("slice caculate: {activate_point}");
-
-//     //assert_eq!(activate_point,pool.activation_point);
-
-
-//     println!("current price: {}", pool.sqrt_price);
-//     println!("liquidity: {}", pool.liquidity);
-//     println!("Token A: {}", pool.token_a_mint);
-//     println!("Token B: {}", pool.token_b_mint);
-
-// }
 

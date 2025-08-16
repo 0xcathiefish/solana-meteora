@@ -75,15 +75,15 @@ impl MeteoraDammV2PoolSwapParams {
             };
         }
         
-        // 转换为U256避免溢出
+        // enhence to 256 bit to avoid overflow
         let liquidity_256 = U256::from(liquidity);
         let sqrt_price_256 = U256::from(sqrt_price);
         let amount_in_256 = U256::from(amount_in);
         
         let amount_out = if direction {
-            // A to B: 实现 get_next_sqrt_price_from_amount_a_rounding_up + get_delta_amount_b_unsigned
+            // A to B:  get_next_sqrt_price_from_amount_a_rounding_up + get_delta_amount_b_unsigned
             
-            // Step 1: 计算 next_sqrt_price = sqrt_price * liquidity / (liquidity + amount_in * sqrt_price)
+            // Step 1:  next_sqrt_price = sqrt_price * liquidity / (liquidity + amount_in * sqrt_price)
             let product = amount_in_256 * sqrt_price_256;
             let denominator = liquidity_256 + product;
             
@@ -92,22 +92,22 @@ impl MeteoraDammV2PoolSwapParams {
             } else {
                 let next_sqrt_price = (liquidity_256 * sqrt_price_256) / denominator;
                 
-                // Step 2: 计算 output = liquidity * (sqrt_price - next_sqrt_price) / 2^128
+                // Step 2:  output = liquidity * (sqrt_price - next_sqrt_price) / 2^128
                 let price_diff = sqrt_price_256 - next_sqrt_price;
                 let numerator = liquidity_256 * price_diff;
-                // 除以 2^128 (RESOLUTION * 2 = 64 * 2 = 128)
+                // devide 2^128 (RESOLUTION * 2 = 64 * 2 = 128)
                 let result: ruint::Uint<256, 4> = numerator >> 128;
                 result.try_into().unwrap_or(0u64)
             }
         } else {
-            // B to A: 实现 get_next_sqrt_price_from_amount_b_rounding_down + get_delta_amount_a_unsigned
+            // B to A:  get_next_sqrt_price_from_amount_b_rounding_down + get_delta_amount_a_unsigned
             
-            // Step 1: 计算 next_sqrt_price = sqrt_price + (amount_in * 2^128) / liquidity
+            // Step 1:  next_sqrt_price = sqrt_price + (amount_in * 2^128) / liquidity
             let amount_shifted = amount_in_256 << 128; // 乘以 2^128
             let price_increase = amount_shifted / liquidity_256;
             let next_sqrt_price = sqrt_price_256 + price_increase;
             
-            // Step 2: 计算 output = liquidity * (next_sqrt_price - sqrt_price) / (sqrt_price * next_sqrt_price)
+            // Step 2: output = liquidity * (next_sqrt_price - sqrt_price) / (sqrt_price * next_sqrt_price)
             let price_diff = next_sqrt_price - sqrt_price_256;
             let numerator = liquidity_256 * price_diff;
             let denominator = sqrt_price_256 * next_sqrt_price;
@@ -120,7 +120,7 @@ impl MeteoraDammV2PoolSwapParams {
             }
         };
         
-        // 应用滑点保护
+        // slipage caculation
         let minimum_amount_out = amount_out.saturating_mul(10_000 - slipage_bps) / 10_000;
         
         MeteoraDammV2PoolSwapParams {
@@ -129,3 +129,5 @@ impl MeteoraDammV2PoolSwapParams {
         }
     }
 }
+
+
